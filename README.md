@@ -44,7 +44,7 @@
 
 ```bash
 # 1. Clone operational repository
-git clone https://github.com/Otello96/ultimate-recovery-suite
+git clone https://github.com/AndreaCavanna/ultimate-recovery-suite
 cd ultimate-recovery-suite
 
 # 2. Create isolated test environment (MANDATORY)
