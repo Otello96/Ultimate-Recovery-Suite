@@ -87,7 +87,7 @@ Execution Flow:
 - Professional GUI Interface: 3-panel ransom demand screen
 - System Fingerprinting: Unique System ID generation
 - Payment Simulation: Bitcoin address + recovery workflow
-- 
+
 ## 🔧 TECHNICAL SPECIFICATIONS
 ```text
 
