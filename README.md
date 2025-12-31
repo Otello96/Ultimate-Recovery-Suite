@@ -92,7 +92,7 @@ Execution Flow:
 
 ## 🔧 TECHNICAL SPECIFICATIONS
 
-![Screenshot Lockspire](https://raw.githubusercontent.com/AndreaCavanna/Lockspire-2.0/main/screen.jpg)
+![Screenshot Lockspire](https://github.com/AndreaCavanna/Lockspire-2.0/blob/main/screen.JPG)
 
 ## File Encryption Pipeline
 
